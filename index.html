@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Conteo de bodega · Cafetería</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F2E8DA; --surface:#FFFBF5; --ink:#3B2418; --muted:#7A5E4E;
+  --caramel:#C8902E; --leaf:#2F5D3A; --line:#E1D2BE; --tile:#FFFFFF;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#1E1410; --surface:#2A1D17; --ink:#F3E6D6; --muted:#BFA48F;
+    --caramel:#E0A84A; --leaf:#5FA36F; --line:#4A362B; --tile:#33241C;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1E1410; --surface:#2A1D17; --ink:#F3E6D6; --muted:#BFA48F;
+  --caramel:#E0A84A; --leaf:#5FA36F; --line:#4A362B; --tile:#33241C;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:17px; line-height:1.45; -webkit-tap-highlight-color:transparent;
+}
+.wrap{max-width:720px;margin:0 auto;padding:20px 16px 140px}
+h1,h2,.num{font-family:"Bricolage Grotesque",system-ui,sans-serif}
+h1{font-size:1.9rem;font-weight:800;margin:4px 0 2px;letter-spacing:-.02em}
+h2{font-size:1.15rem;font-weight:700;margin:0 0 10px}
+.sub{color:var(--muted);margin:0 0 18px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:16px}
+label{display:block;font-weight:700;font-size:.92rem;margin-bottom:6px}
+input,select{
+  width:100%;font:inherit;color:var(--ink);background:var(--bg);
+  border:1.5px solid var(--line);border-radius:12px;padding:11px 12px;
+}
+input:focus,select:focus,button:focus-visible{outline:3px solid var(--caramel);outline-offset:2px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.shifts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.shifts button{
+  font:inherit;font-weight:700;padding:11px 4px;border-radius:12px;cursor:pointer;
+  border:1.5px solid var(--line);background:var(--bg);color:var(--ink);
+}
+.shifts button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.tile{
+  position:relative;background:var(--tile);border:1.5px solid var(--line);border-radius:20px;
+  padding:14px 14px 12px;cursor:pointer;user-select:none;text-align:left;font:inherit;color:var(--ink);
+  min-height:150px;display:flex;flex-direction:column;justify-content:space-between;
+  transition:transform .08s ease;
+}
+.tile:active{transform:scale(.97)}
+.tile.has{border-color:var(--caramel);box-shadow:inset 0 -6px 0 var(--caramel)}
+.tile .name{font-weight:700;line-height:1.2;padding-right:40px}
+.tile .num{font-size:3.4rem;font-weight:800;line-height:1;letter-spacing:-.03em}
+.tile .num.bump{animation:bump .22s ease}
+@keyframes bump{50%{transform:scale(1.18)}}
+.tile .unit{color:var(--muted);font-size:.88rem}
+.minus{
+  position:absolute;top:10px;right:10px;width:38px;height:38px;border-radius:50%;
+  border:1.5px solid var(--line);background:var(--bg);color:var(--ink);
+  font-size:1.4rem;line-height:1;cursor:pointer;display:grid;place-items:center;
+}
+.minus:disabled{opacity:.35}
+.hint{color:var(--muted);font-size:.92rem;margin:10px 2px 0}
+.bar{
+  position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);
+  padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));
+}
+.bar-in{max-width:720px;margin:0 auto;display:flex;gap:10px;align-items:center}
+.total{flex:1;font-size:.95rem;color:var(--muted)}
+.total b{font-family:"Bricolage Grotesque",sans-serif;font-size:1.5rem;color:var(--ink)}
+.btn{
+  font:inherit;font-weight:700;border:none;border-radius:14px;padding:13px 18px;cursor:pointer;
+  background:var(--leaf);color:#fff;
+}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.btn.small{padding:9px 13px;font-size:.92rem}
+pre{
+  white-space:pre-wrap;word-break:break-word;font:inherit;background:var(--bg);
+  border:1.5px dashed var(--line);border-radius:12px;padding:14px;margin:0 0 14px;
+}
+dialog{
+  border:none;border-radius:22px;padding:20px;background:var(--surface);color:var(--ink);
+  width:min(560px,calc(100% - 24px));max-height:85vh;
+}
+dialog::backdrop{background:rgba(30,20,16,.55)}
+.actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end}
+.plist{list-style:none;margin:0 0 14px;padding:0}
+.plist li{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.plist li span{flex:1}
+.plist li small{color:var(--muted)}
+.addrow{display:grid;grid-template-columns:2fr 1fr auto;gap:8px;margin-bottom:14px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.toast{
+  position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:var(--ink);color:var(--bg);
+  padding:10px 16px;border-radius:12px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){.tile,.tile .num.bump{transition:none;animation:none}}
+@media (max-width:380px){.row{grid-template-columns:1fr}.grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>Conteo de bodega</h1>
+      <p class="sub">Toca un producto cada vez que lo saques de la bodega seca.</p>
+    </div>
+    <button class="btn ghost small" id="editBtn" type="button">Productos</button>
+  </div>
+
+  <section class="panel" aria-label="Datos del turno">
+    <label for="who">¿Quién está en cafetería?</label>
+    <input id="who" type="text" placeholder="Tu nombre" autocomplete="name">
+    <div class="row">
+      <div>
+        <label for="date">Fecha</label>
+        <input id="date" type="date">
+      </div>
+      <div>
+        <label for="boss">WhatsApp de la Jefa</label>
+        <input id="boss" type="tel" inputmode="tel" placeholder="Ej: 56912345678">
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <label id="shiftLbl">Turno</label>
+      <div class="shifts" role="group" aria-labelledby="shiftLbl">
+        <button type="button" data-s="Mañana">Mañana</button>
+        <button type="button" data-s="Tarde">Tarde</button>
+        <button type="button" data-s="Noche">Noche</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="grid" id="grid"></div>
+  <p class="hint">El conteo se guarda en este teléfono aunque cierres la página.</p>
+</div>
+
+<div class="bar">
+  <div class="bar-in">
+    <div class="total"><b id="total">0</b> unidades sacadas</div>
+    <button class="btn" id="finishBtn" type="button">Terminar turno</button>
+  </div>
+</div>
+
+<dialog id="sendDlg">
+  <h2>Mensaje para la Jefa</h2>
+  <pre id="msg"></pre>
+  <div class="actions">
+    <button class="btn ghost small" id="copyBtn" type="button">Copiar</button>
+    <button class="btn ghost small" id="resetBtn" type="button">Empezar turno nuevo</button>
+    <button class="btn" id="waBtn" type="button">Enviar por WhatsApp</button>
+  </div>
+  <p class="hint" style="text-align:right"><button class="btn ghost small" id="closeSend" type="button">Volver al conteo</button></p>
+</dialog>
+
+<dialog id="editDlg">
+  <h2>Productos de la bodega</h2>
+  <ul class="plist" id="plist"></ul>
+  <div class="addrow">
+    <input id="newName" placeholder="Nuevo producto" aria-label="Nombre del producto">
+    <input id="newUnit" placeholder="unidad" aria-label="Unidad">
+    <button class="btn small" id="addBtn" type="button">Agregar</button>
+  </div>
+  <div class="actions"><button class="btn" id="closeEdit" type="button">Listo</button></div>
+</dialog>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const DEFAULTS = [
+  {id:"alulosa",name:"Alulosa",unit:"unidades"},
+  {id:"stevia",name:"Stevia",unit:"unidades"},
+  {id:"revol",name:"Revolvedores",unit:"paquetes"},
+  {id:"cafe",name:"Café Juan Valdez",unit:"paquetes"},
+  {id:"vaini",name:"Vainilla",unit:"unidades"},
+  {id:"choco",name:"Chocolate",unit:"unidades"},
+  {id:"azucar1kg",name:"Azúcar (1 kg)",unit:"bolsas"},
+  {id:"azucarsachet",name:"Caja de azúcar (sachet)",unit:"cajas"},
+  {id:"sucralosa",name:"Caja de sucralosa (sachet)",unit:"cajas"}
+];
+const KEY = "conteo-cafeteria-v2";
+const $ = s => document.querySelector(s);
+
+function todayStr(){
+  const d = new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset());
+  return d.toISOString().slice(0,10);
+}
+function guessShift(){
+  const h = new Date().getHours();
+  return h < 13 ? "Mañana" : h < 19 ? "Tarde" : "Noche";
+}
+function load(){
+  try{ const raw = localStorage.getItem(KEY); if(raw) return JSON.parse(raw); }catch(e){}
+  return null;
+}
+let state = load() || {};
+state.products = Array.isArray(state.products) && state.products.length ? state.products : DEFAULTS.slice();
+state.counts = state.counts || {};
+state.who = state.who || "";
+state.boss = state.boss || "";
+state.date = state.date || todayStr();
+state.shift = state.shift || guessShift();
+
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
+
+function toast(t){
+  const el = $("#toast"); el.textContent = t; el.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(()=>el.classList.remove("show"),1600);
+}
+
+function renderShift(){
+  document.querySelectorAll(".shifts button").forEach(b=>{
+    b.setAttribute("aria-pressed", b.dataset.s === state.shift ? "true" : "false");
+  });
+}
+
+function renderGrid(){
+  const g = $("#grid"); g.innerHTML = "";
+  state.products.forEach(p=>{
+    const n = state.counts[p.id] || 0;
+    const tile = document.createElement("div");
+    tile.className = "tile" + (n ? " has" : "");
+    tile.setAttribute("role","button"); tile.tabIndex = 0;
+    tile.setAttribute("aria-label", `Sumar uno a ${p.name}. Llevas ${n}.`);
+    tile.innerHTML = `<span class="name"></span>
+      <span><span class="num">${n}</span><br><span class="unit"></span></span>
+      <button class="minus" type="button" aria-label="Restar uno a ${p.name}" ${n?"":"disabled"}>−</button>`;
+    tile.querySelector(".name").textContent = p.name;
+    tile.querySelector(".unit").textContent = p.unit || "";
+    const add = ()=>change(p.id, 1);
+    tile.addEventListener("click", add);
+    tile.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();add();} });
+    tile.querySelector(".minus").addEventListener("click", e=>{ e.stopPropagation(); change(p.id,-1); });
+    g.appendChild(tile);
+  });
+  updateTotal();
+}
+
+function change(id, d){
+  const n = Math.max(0, (state.counts[id]||0) + d);
+  state.counts[id] = n; save();
+  if(navigator.vibrate && d>0) try{navigator.vibrate(12)}catch(e){}
+  renderGrid();
+  const idx = state.products.findIndex(p=>p.id===id);
+  const num = $("#grid").children[idx]?.querySelector(".num");
+  if(num){ num.classList.add("bump"); }
+}
+
+function updateTotal(){
+  const t = state.products.reduce((a,p)=>a+(state.counts[p.id]||0),0);
+  $("#total").textContent = t;
+}
+
+function prettyDate(s){
+  const [y,m,d] = s.split("-").map(Number);
+  const dt = new Date(y, m-1, d);
+  return dt.toLocaleDateString("es-CL",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+}
+
+function greeting(){
+  const h = new Date().getHours();
+  return h < 12 ? "Buenos días" : h < 20 ? "Buenas tardes" : "Buenas noches";
+}
+function unitFor(n, unit){
+  if(!unit || n !== 1) return unit || "";
+  if(/des$/i.test(unit)) return unit.slice(0,-2);
+  if(/s$/i.test(unit)) return unit.slice(0,-1);
+  return unit;
+}
+function buildMessage(){
+  const items = state.products.filter(p=>(state.counts[p.id]||0)>0);
+  let m = `${greeting()}, adjunto conteo de productos sacados de bodega seca para las cafeteras durante el turno de ${state.shift.toLowerCase()}.\n\n`;
+  m += `Encargado/a: ${state.who || "(sin nombre)"}\n`;
+  m += `Fecha: ${prettyDate(state.date)}\n\n`;
+  if(items.length){
+    m += `Productos sacados:\n`;
+    items.forEach(p=>{ const n = state.counts[p.id]; m += `• ${p.name}: ${n} ${unitFor(n,p.unit)}`.trimEnd() + `\n`; });
+  } else {
+    m += `No se sacaron productos de la bodega en este turno.\n`;
+  }
+  m += `\nSaludos.`;
+  return m.trim();
+}
+
+// Inputs
+$("#who").value = state.who; $("#boss").value = state.boss; $("#date").value = state.date;
+$("#who").addEventListener("input", e=>{ state.who = e.target.value; save(); });
+$("#boss").addEventListener("input", e=>{ state.boss = e.target.value; save(); });
+$("#date").addEventListener("change", e=>{ state.date = e.target.value || todayStr(); save(); });
+document.querySelectorAll(".shifts button").forEach(b=>b.addEventListener("click",()=>{
+  state.shift = b.dataset.s; save(); renderShift();
+}));
+
+// Finish / send
+$("#finishBtn").addEventListener("click", ()=>{
+  if(!state.who.trim()){ toast("Escribe tu nombre primero"); $("#who").focus(); return; }
+  $("#msg").textContent = buildMessage(); $("#sendDlg").showModal();
+});
+$("#closeSend").addEventListener("click", ()=>$("#sendDlg").close());
+$("#waBtn").addEventListener("click", ()=>{
+  const num = (state.boss||"").replace(/\D/g,"");
+  const text = encodeURIComponent(buildMessage());
+  const url = num ? `https://wa.me/${num}?text=${text}` : `https://wa.me/?text=${text}`;
+  window.open(url, "_blank", "noopener");
+});
+$("#copyBtn").addEventListener("click", async ()=>{
+  try{ await navigator.clipboard.writeText(buildMessage()); toast("Mensaje copiado"); }
+  catch(e){ toast("No se pudo copiar"); }
+});
+$("#resetBtn").addEventListener("click", ()=>{
+  if(!confirm("¿Borrar el conteo y empezar un turno nuevo?")) return;
+  state.counts = {}; state.date = todayStr(); state.shift = guessShift(); save();
+  $("#date").value = state.date; renderShift(); renderGrid(); $("#sendDlg").close();
+  toast("Turno nuevo listo");
+});
+
+// Edit products
+function renderList(){
+  const ul = $("#plist"); ul.innerHTML = "";
+  state.products.forEach((p,i)=>{
+    const li = document.createElement("li");
+    li.innerHTML = `<span></span><small></small><button class="btn ghost small" type="button">Quitar</button>`;
+    li.querySelector("span").textContent = p.name;
+    li.querySelector("small").textContent = p.unit || "";
+    li.querySelector("button").addEventListener("click", ()=>{
+      state.products.splice(i,1); delete state.counts[p.id]; save(); renderList(); renderGrid();
+    });
+    ul.appendChild(li);
+  });
+}
+$("#editBtn").addEventListener("click", ()=>{ renderList(); $("#editDlg").showModal(); });
+$("#closeEdit").addEventListener("click", ()=>$("#editDlg").close());
+$("#addBtn").addEventListener("click", ()=>{
+  const name = $("#newName").value.trim(); if(!name) return;
+  state.products.push({id:"p"+Date.now(), name, unit:$("#newUnit").value.trim()});
+  $("#newName").value = ""; $("#newUnit").value = ""; save(); renderList(); renderGrid();
+});
+
+renderShift(); renderGrid();
+</script>
+</body>
+</html>
