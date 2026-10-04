@@ -99,7 +99,7 @@ dialog::backdrop{background:rgba(30,20,16,.55)}
 .plist li{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
 .plist li span{flex:1}
 .plist li small{color:var(--muted)}
-.addrow{display:grid;grid-template-columns:2fr 1fr auto;gap:8px;margin-bottom:14px}
+.addrow{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:14px}
 .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .toast{
   position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:var(--ink);color:var(--bg);
@@ -170,7 +170,6 @@ dialog::backdrop{background:rgba(30,20,16,.55)}
   <ul class="plist" id="plist"></ul>
   <div class="addrow">
     <input id="newName" placeholder="Nuevo producto" aria-label="Nombre del producto">
-    <input id="newUnit" placeholder="unidad" aria-label="Unidad">
     <button class="btn small" id="addBtn" type="button">Agregar</button>
   </div>
   <div class="actions"><button class="btn" id="closeEdit" type="button">Listo</button></div>
@@ -180,17 +179,17 @@ dialog::backdrop{background:rgba(30,20,16,.55)}
 
 <script>
 const DEFAULTS = [
-  {id:"alulosa",name:"Alulosa",unit:"unidades"},
-  {id:"stevia",name:"Stevia",unit:"unidades"},
-  {id:"revol",name:"Revolvedores",unit:"paquetes"},
-  {id:"cafe",name:"Café Juan Valdez",unit:"paquetes"},
-  {id:"vaini",name:"Vainilla",unit:"unidades"},
-  {id:"choco",name:"Chocolate",unit:"unidades"},
-  {id:"azucar1kg",name:"Azúcar (1 kg)",unit:"bolsas"},
-  {id:"azucarsachet",name:"Caja de azúcar (sachet)",unit:"cajas"},
-  {id:"sucralosa",name:"Caja de sucralosa (sachet)",unit:"cajas"}
+  {id:"alulosa",name:"Alulosa"},
+  {id:"stevia",name:"Stevia"},
+  {id:"revol",name:"Caja de revolvedores (100 u.)"},
+  {id:"cafe",name:"Café Juan Valdez"},
+  {id:"vaini",name:"Vainilla en polvo (1 kg)"},
+  {id:"choco",name:"Chocolate en polvo (1 kg)"},
+  {id:"azucar1kg",name:"Azúcar (1 kg)"},
+  {id:"azucarsachet",name:"Caja de azúcar (sachet)"},
+  {id:"sucralosa",name:"Caja de sucralosa (sachet)"}
 ];
-const KEY = "conteo-cafeteria-v2";
+const KEY = "conteo-cafeteria-v3";
 const $ = s => document.querySelector(s);
 
 function todayStr(){
@@ -205,7 +204,14 @@ function load(){
   try{ const raw = localStorage.getItem(KEY); if(raw) return JSON.parse(raw); }catch(e){}
   return null;
 }
-let state = load() || {};
+let state = load();
+if(!state){
+  state = {};
+  try{
+    const old = JSON.parse(localStorage.getItem("conteo-cafeteria-v2")||"null");
+    if(old){ state.who = old.who; state.boss = old.boss; }
+  }catch(e){}
+}
 state.products = Array.isArray(state.products) && state.products.length ? state.products : DEFAULTS.slice();
 state.counts = state.counts || {};
 state.who = state.who || "";
@@ -235,10 +241,9 @@ function renderGrid(){
     tile.setAttribute("role","button"); tile.tabIndex = 0;
     tile.setAttribute("aria-label", `Sumar uno a ${p.name}. Llevas ${n}.`);
     tile.innerHTML = `<span class="name"></span>
-      <span><span class="num">${n}</span><br><span class="unit"></span></span>
+      <span class="num">${n}</span>
       <button class="minus" type="button" aria-label="Restar uno a ${p.name}" ${n?"":"disabled"}>−</button>`;
     tile.querySelector(".name").textContent = p.name;
-    tile.querySelector(".unit").textContent = p.unit || "";
     const add = ()=>change(p.id, 1);
     tile.addEventListener("click", add);
     tile.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();add();} });
@@ -271,7 +276,7 @@ function prettyDate(s){
 
 function greeting(){
   const h = new Date().getHours();
-  return h < 12 ? "Buenos días" : h < 20 ? "Buenas tardes" : "Buenas noches";
+  return h >= 5 && h < 12 ? "Buenos días" : h >= 12 && h < 20 ? "Buenas tardes" : "Buenas noches";
 }
 function unitFor(n, unit){
   if(!unit || n !== 1) return unit || "";
@@ -286,7 +291,7 @@ function buildMessage(){
   m += `Fecha: ${prettyDate(state.date)}\n\n`;
   if(items.length){
     m += `Productos sacados:\n`;
-    items.forEach(p=>{ const n = state.counts[p.id]; m += `• ${p.name}: ${n} ${unitFor(n,p.unit)}`.trimEnd() + `\n`; });
+    items.forEach(p=>{ const n = state.counts[p.id]; m += `• ${p.name}: ${n}\n`; });
   } else {
     m += `No se sacaron productos de la bodega en este turno.\n`;
   }
@@ -331,9 +336,8 @@ function renderList(){
   const ul = $("#plist"); ul.innerHTML = "";
   state.products.forEach((p,i)=>{
     const li = document.createElement("li");
-    li.innerHTML = `<span></span><small></small><button class="btn ghost small" type="button">Quitar</button>`;
+    li.innerHTML = `<span></span><button class="btn ghost small" type="button">Quitar</button>`;
     li.querySelector("span").textContent = p.name;
-    li.querySelector("small").textContent = p.unit || "";
     li.querySelector("button").addEventListener("click", ()=>{
       state.products.splice(i,1); delete state.counts[p.id]; save(); renderList(); renderGrid();
     });
@@ -344,8 +348,8 @@ $("#editBtn").addEventListener("click", ()=>{ renderList(); $("#editDlg").showMo
 $("#closeEdit").addEventListener("click", ()=>$("#editDlg").close());
 $("#addBtn").addEventListener("click", ()=>{
   const name = $("#newName").value.trim(); if(!name) return;
-  state.products.push({id:"p"+Date.now(), name, unit:$("#newUnit").value.trim()});
-  $("#newName").value = ""; $("#newUnit").value = ""; save(); renderList(); renderGrid();
+  state.products.push({id:"p"+Date.now(), name});
+  $("#newName").value = ""; save(); renderList(); renderGrid();
 });
 
 renderShift(); renderGrid();
